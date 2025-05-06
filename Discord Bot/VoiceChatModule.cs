@@ -21,13 +21,23 @@ namespace Discord_Bot
             if (voiceChannel == null) { await Context.Channel.SendMessageAsync("User must be in a voice channel, or a voice channel must be passed as an argument."); return; }
 
             // For the next step with transmitting audio, you would want to pass this Audio Client in to a service.
-            var audioClient = await voiceChannel.ConnectAsync();
+            try
+            {
+                Console.WriteLine("Connecting to voice..."); 
+                var audioClient = await voiceChannel.ConnectAsync();
+                Console.WriteLine("Connected!");
+                await SendAsyncURL(audioClient, url);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Voice connection failed: {ex.Message}");
+            }
 
 
-            
+
             //await SendAsync(audioClient, "test.mp3");
             //await SendAsyncURL(audioClient, "https://www.youtube.com/watch?v=k0rj-Y0nMcc");
-            await SendAsyncURL(audioClient, url);
+            //await SendAsyncURL(audioClient, url);
         }
 
         private Process CreateStream(string path)

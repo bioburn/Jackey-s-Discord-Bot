@@ -3,19 +3,23 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Discord_Bot;
 using System.Reflection;
-
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 public class Program
 {
-    public static Task Main(string[] args) => new Program().MainAsync();
+    public static Task Main(string[] args) => new Program().MainAsync(args);
 
     private DiscordSocketClient? _client;
     private CommandService? _commands;
 
     private CommandHandler? commandHandler;
 
-    public async Task MainAsync()
+    public async Task MainAsync(string[] args) 
     {
+        /*
         var config = new DiscordSocketConfig
         {
             // Set the desired GatewayIntents
@@ -45,12 +49,68 @@ public class Program
         await _client.LoginAsync(TokenType.Bot, token);
         await _client.StartAsync();
 
+        
        
 
-        
 
-        
+
+
         // Block this task until the program is closed.
+        await Task.Delay(-1);
+        */
+
+        var builder = Host.CreateDefaultBuilder(args)
+           .ConfigureWebHostDefaults(web =>
+           {
+               web.UseUrls("http://0.0.0.0:5000");
+
+               web.ConfigureServices(services =>
+               {
+                   services.AddControllers();
+                   services.AddSingleton(sp =>
+                   {
+                       var config = new DiscordSocketConfig
+                       {
+                           GatewayIntents = GatewayIntents.Guilds |
+                                            GatewayIntents.GuildMessages |
+                                            GatewayIntents.AllUnprivileged |
+                                            GatewayIntents.MessageContent
+                       };
+
+                       return new DiscordSocketClient(config);
+                   });
+                   services.AddSingleton<CommandService>();
+               });
+               web.Configure(app =>
+               {
+                   app.UseRouting();
+                   app.UseEndpoints(endpoints =>
+                   {
+                       endpoints.MapControllers();
+                   });
+               });
+           });
+
+        var host = builder.Build();
+
+        // Start web server in the background
+        _ = host.RunAsync();
+
+        // Get Discord bot services
+        var discord = host.Services.GetRequiredService<DiscordSocketClient>();
+        var commands = host.Services.GetRequiredService<CommandService>();
+        await commands.AddModulesAsync(Assembly.GetEntryAssembly(), null);
+
+        discord.Log += msg => { Console.WriteLine(msg.ToString()); return Task.CompletedTask; };
+
+        var token = File.ReadAllText("token.txt");
+
+        await discord.LoginAsync(TokenType.Bot, token);
+        await discord.StartAsync();
+
+        var handler = new CommandHandler(discord, commands);
+        await handler.InstallCommandsAsync();
+
         await Task.Delay(-1);
     }
 
@@ -64,5 +124,7 @@ public class Program
     {
         await command.RespondAsync($"You executed {command.Data.Name}");
     }
+
+   
 }
     
